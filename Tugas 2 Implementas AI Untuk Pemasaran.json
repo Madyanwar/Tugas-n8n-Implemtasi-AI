@@ -1,0 +1,314 @@
+{
+  "name": "Tugas 2 Implementas AI Untuk Pemasaran",
+  "nodes": [
+    {
+      "parameters": {
+        "path": "4ab21a2d-83b7-42cf-9721-8c236ddfc8f4",
+        "formTitle": "Generate Gambar",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "prompt"
+            },
+            {
+              "fieldLabel": "api_key"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "14b66a01-bc12-4e25-a382-a5a50ab5d443",
+      "name": "On form submission",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2,
+      "position": [
+        128,
+        0
+      ],
+      "webhookId": "4ab21a2d-83b7-42cf-9721-8c236ddfc8f4"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.kie.ai/api/v1/jobs/createTask",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.api_key }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"grok-imagine/text-to-image\",\n  \"input\": {\n    \"prompt\": \"{{ $json.prompt.replace(/\"/g, '\\\\\"') }}\",\n    \"aspect_ratio\": \"3:2\"\n  }\n}",
+        "options": {}
+      },
+      "id": "0036541e-9508-4db9-a5ca-1b8dd7d514f7",
+      "name": "HTTP POST (Generate)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        384,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "amount": 10,
+        "unit": "seconds"
+      },
+      "id": "b633a24b-e99b-43d1-b7b0-ef05a3bcc3a9",
+      "name": "Wait 10s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1,
+      "position": [
+        608,
+        0
+      ],
+      "webhookId": "dda007ca-77b1-4d50-95f4-3dcb8f9bb7ea"
+    },
+    {
+      "parameters": {
+        "url": "https://api.kie.ai/api/v1/jobs/recordInfo",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "taskId",
+              "value": "={{ $json.data.taskId }}"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer ffaa9baf071cc1fa8fbc41be351c62be"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "a8b93eb0-a705-49ac-853a-afe6cf31e59c",
+      "name": "HTTP GET (Status)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        800,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "conditions": [
+            {
+              "leftValue": "={{ $json.data.state }}",
+              "rightValue": "success",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "712442cc-5181-40e2-80ec-25d7870e65ee",
+      "name": "IF (state == success)",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        1024,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 1. Ambil seluruh data balasan dari API\nconst apiData = $json.data;\n\nif (!apiData) {\n  return [{ error: \"Gagal dapet data dari API.\" }];\n}\n\n// 2. Coba baca resultJson kalau memang ada isinya\nlet parsedResult = {};\nif (apiData.resultJson && apiData.resultJson !== \"\") {\n  try {\n    parsedResult = JSON.parse(apiData.resultJson);\n  } catch(e) {\n    // Biarkan kalau formatnya bukan JSON\n  }\n}\n\n// 3. Tangkap gambarnya dan siapkan data buat diintip\nreturn [{\n  // Kode ini akan otomatis mencari link gambar dari berbagai kemungkinan nama\n  img1: parsedResult.resultUrls?.[0] || parsedResult.url || parsedResult.imageUrl || apiData.imageUrl || null,\n  img2: parsedResult.resultUrls?.[1] || null,\n  img3: parsedResult.resultUrls?.[2] || null,\n  img4: parsedResult.resultUrls?.[3] || null,\n  \n  // Kalau gambarnya masih nggak masuk ke Telegram, kita intip data ini:\n  debug_isi_resultJson: parsedResult,\n  debug_isi_data_asli: apiData\n}];"
+      },
+      "id": "28a5c104-33e4-4c0f-8832-80d078a0688c",
+      "name": "Parse Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1264,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "7cdedb2a-3bae-4116-aa4f-a7f63536b875",
+      "name": "Download Image",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4,
+      "position": [
+        1648,
+        -16
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "sendPhoto",
+        "chatId": "5064972579",
+        "binaryData": true,
+        "additionalFields": {}
+      },
+      "id": "892a3b8c-2650-4353-bd7a-6c62ed15ac0a",
+      "name": "Send Telegram",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1,
+      "position": [
+        1856,
+        -16
+      ],
+      "webhookId": "c0111f41-ec76-4601-8ff4-8122637fe75d",
+      "credentials": {
+        "telegramApi": {
+          "id": "0IcfM3oTUSI084RV",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const urls = [\n    $json.img1,\n    $json.img2,\n    $json.img3,\n    $json.img4\n].filter(Boolean);\n\n// jadikan 1 URL = 1 item\nreturn urls.map((url, index) => ({\n    json: {\n        url,\n        index: index + 1\n    }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1472,
+        -16
+      ],
+      "id": "6ac782ba-7dce-457d-96c7-cc8c5f14eda0",
+      "name": "Looping Image"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "On form submission": {
+      "main": [
+        [
+          {
+            "node": "HTTP POST (Generate)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP POST (Generate)": {
+      "main": [
+        [
+          {
+            "node": "Wait 10s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 10s": {
+      "main": [
+        [
+          {
+            "node": "HTTP GET (Status)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP GET (Status)": {
+      "main": [
+        [
+          {
+            "node": "IF (state == success)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF (state == success)": {
+      "main": [
+        [
+          {
+            "node": "Parse Result",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 10s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Result": {
+      "main": [
+        [
+          {
+            "node": "Looping Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Image": {
+      "main": [
+        [
+          {
+            "node": "Send Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Looping Image": {
+      "main": [
+        [
+          {
+            "node": "Download Image",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false
+  },
+  "versionId": "a8c2009e-dd6d-474c-b2ce-522d48984f69",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a8b2c2141b9d9053f1875c9bb69c4ce05e16181323ff09103829de55d9b5b07d"
+  },
+  "id": "d6XnCIZ7t6f276tM",
+  "tags": []
+}
